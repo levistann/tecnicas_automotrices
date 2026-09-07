@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gestión Taller</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #f1f5f9; padding: 15px; color: #1e293b; padding-bottom: 40px; }
+    
+    h1 { font-size: 1.4rem; margin-bottom: 15px; color: #0f172a; text-align: center; }
+
+    /* Formulario agregar */
+    .card-add { background: #ffffff; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .card-add h2 { font-size: 1rem; margin-bottom: 10px; color: #334155; }
+    input[type="text"], select { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px; }
+    button.btn-add { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; font-size: 1rem; font-weight: 700; border-radius: 8px; cursor: pointer; }
+    button.btn-add:active { background: #0369a1; }
+
+    /* Lista de vehículos */
+    .vehicle-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .vehicle-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .vehicle-title { font-size: 1.1rem; font-weight: 700; color: #0f172a; }
+    
+    .actions-grid { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .state-select { margin-bottom: 0; font-weight: 600; background: #f8fafc; }
+    .btn-delete { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 0 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+    .loading { text-align: center; padding: 20px; color: #64748b; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <h1>Control de Vehículos</h1>
+
+  <!-- Formulario para agregar -->
+  <div class="card-add">
+    <h2>+ Ingresar Nuevo Vehículo</h2>
+    <input type="text" id="nuevo-modelo" placeholder="Ej: Toyota Hilux 2020">
+    <select id="nuevo-estado">
+      <option value="Recibido">Recibido</option>
+      <option value="Diagnosticando">Diagnosticando</option>
+      <option value="Esperando Repuestos">Esperando Repuestos</option>
+      <option value="En proceso">En proceso</option>
+      <option value="Listo para revisión">Listo para revisión</option>
+    </select>
+    <button class="btn-add" onclick="agregarVehiculo()">Guardar Vehículo</button>
+  </div>
+
+  <div id="lista-vehiculos" class="loading">Cargando lista...</div>
+
+  <script>
+    // PEGA AQUÍ LA URL QUE TERMINA EN /exec
+    const API_URL = "https://script.google.com/macros/s/AKfycbzcGTT0ITzV93QwdPXsIUHv9LBk6TkgktYcv0V4ia4TNmG4zwSpD3PEAPvShQ0Qq8JTAw/exec";
+
+    const ESTADOS = [
+      "Recibido",
+      "Diagnosticando",
+      "Esperando Repuestos",
+      "En proceso",
+      "Listo para revisión"
+    ];
+
+    async function cargarVehiculos() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        renderLista(data);
+      } catch (err) {
+        document.getElementById("lista-vehiculos").innerHTML = `<p style="color:red; text-align:center;">Error de conexión</p>`;
+      }
+    }
+
+    function renderLista(items) {
+      const container = document.getElementById("lista-vehiculos");
+      if (items.length === 0) {
+        container.innerHTML = `<p style="text-align:center; color:#64748b;">No hay autos en el taller</p>`;
+        return;
+      }
+
+      container.innerHTML = items.map(item => `
+        <div class="vehicle-card" id="card-${item.rowIndex}">
+          <div class="vehicle-header">
+            <span class="vehicle-title">${item.modelo}</span>
+          </div>
+          <div class="actions-grid">
+            <select class="state-select" onchange="cambiarEstado(${item.rowIndex}, this.value)">
+              ${ESTADOS.map(st => `
+                <option value="${st}" ${st === item.estado ? "selected" : ""}>${st}</option>
+              `).join("")}
+            </select>
+            <button class="btn-delete" onclick="eliminarVehiculo(${item.rowIndex})">✕ Quitar</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function agregarVehiculo() {
+      const modeloInput = document.getElementById("nuevo-modelo");
+      const estadoInput = document.getElementById("nuevo-estado");
+      const modelo = modeloInput.value.trim();
+      const estado = estadoInput.value;
+
+      if (!modelo) return alert("Escribe el modelo");
+
+      modeloInput.disabled = true;
+      try {
+        await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "ADD", modelo, estado })
+        });
+        modeloInput.value = "";
+        cargarVehiculos();
+      } catch (e) {
+        alert("Error al agregar");
+      } finally {
+        modeloInput.disabled = false;
+      }
+    }
+
+    async function cambiarEstado(rowIndex, nuevoEstado) {
+      try {
+        await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "UPDATE", rowIndex, estado: nuevoEstado })
+        });
+      } catch (e) {
+        alert("Error al actualizar estado");
+        cargarVehiculos();
+      }
+    }
+
+    async function eliminarVehiculo(rowIndex) {
+      if (!confirm("¿Dar salida a este vehículo? Se quitará de la pantalla.")) return;
+      
+      const card = document.getElementById(`card-${rowIndex}`);
+      if (card) card.style.opacity = "0.3";
+
+      try {
+        await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "DELETE", rowIndex })
+        });
+        cargarVehiculos();
+      } catch (e) {
+        alert("Error al eliminar");
+        cargarVehiculos();
+      }
+    }
+
+    cargarVehiculos();
+  </script>
+</body>
+</html>
