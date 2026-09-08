@@ -140,8 +140,20 @@
           return;
         }
 
-        tbody.innerHTML = rows.map(r => {
-          // Extrae el valor crudo o formateado de cada celda
+// Filtrar encabezados residuales y celdas vacías
+        const autosValidos = rows.filter(r => {
+          if (!r.c || !r.c[0] || r.c[0].v === null) return false;
+          const texto = String(r.c[0].v).trim().toLowerCase();
+          // Ignora la fila si es el encabezado
+          return texto !== "modelo" && texto !== "";
+        });
+
+        if (autosValidos.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#64748b; padding-top:40px;">No hay vehículos en lista</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = autosValidos.map(r => {
           const modelo = (r.c[0] && r.c[0].v !== null) ? (r.c[0].f || r.c[0].v) : "—";
           const estado = (r.c[1] && r.c[1].v !== null) ? (r.c[1].f || r.c[1].v) : "Sin estado";
           const badgeClass = getBadgeClass(estado);
@@ -155,7 +167,6 @@
             </tr>
           `;
         }).join("");
-
       } catch (err) {
         console.error("Error al procesar los datos de Google:", err);
       }
