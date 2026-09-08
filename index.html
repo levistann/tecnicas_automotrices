@@ -12,10 +12,13 @@
     }
 
     body {
-      background-color: #0f172a; /* Fondo oscuro de alto contraste */
+      background-color: #0f172a;
       color: #f8fafc;
-      padding: 30px;
-      overflow: hidden; /* Evita barras de desplazamiento en TV */
+      padding: 24px 32px;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     header {
@@ -23,61 +26,77 @@
       justify-content: space-between;
       align-items: center;
       border-bottom: 2px solid #334155;
-      padding-bottom: 15px;
-      margin-bottom: 25px;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
     }
 
     h1 {
-      font-size: 2.5rem;
+      font-size: 2.2rem;
       text-transform: uppercase;
       letter-spacing: 2px;
       color: #38bdf8;
     }
 
     .clock {
-      font-size: 2.2rem;
+      font-size: 2rem;
       font-weight: 700;
       color: #94a3b8;
     }
 
-    table {
+    /* Contenedor base de la cuadrícula */
+    #grid-vehiculos {
+      display: grid;
       width: 100%;
-      border-collapse: collapse;
+      align-content: start;
+      transition: all 0.3s ease;
     }
 
-    th {
-      text-align: left;
-      font-size: 1.6rem;
-      color: #64748b;
-      padding: 12px 20px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
+    /* Modo 1 columna (1 a 5 autos): centrado y amplio */
+    .cols-1 {
+      grid-template-columns: 1fr;
+      max-width: 900px;
+      margin: 0 auto;
+      gap: 16px;
     }
 
-    td {
-      padding: 18px 20px;
-      font-size: 2rem;
-      font-weight: 600;
-      border-bottom: 1px solid #1e293b;
+    /* Modo 2 columnas (6 a 10 autos): aprovecha todo el ancho de la TV */
+    .cols-2 {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px 24px;
+      max-width: 100%;
     }
 
-    .col-modelo {
-      width: 60%;
-      color: #ffffff;
+    /* Tarjetas de autos (dimensiones fijas sin reducción) */
+    .card-auto {
+      background-color: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
-    .col-estado {
-      width: 40%;
-    }
-
-    /* Badges de estado con colores llamativos */
-    .badge {
-      display: inline-block;
-      padding: 8px 18px;
-      border-radius: 8px;
+    .modelo-texto {
       font-size: 1.6rem;
       font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 60%;
+    }
+
+    /* Badges de estado */
+    .badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-size: 1.3rem;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
     }
 
     .st-recibido { background-color: #3b82f6; color: #ffffff; }
@@ -86,6 +105,14 @@
     .st-proceso { background-color: #a855f7; color: #ffffff; }
     .st-listo { background-color: #22c55e; color: #ffffff; }
     .st-default { background-color: #475569; color: #ffffff; }
+
+    .mensaje-vacio {
+      text-align: center;
+      color: #64748b;
+      font-size: 1.6rem;
+      padding-top: 60px;
+      width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -95,24 +122,14 @@
     <div class="clock" id="reloj">--:--</div>
   </header>
 
-  <table>
-    <thead>
-      <tr>
-        <th class="col-modelo">Vehículo / Modelo</th>
-        <th class="col-estado">Estado</th>
-      </tr>
-    </thead>
-    <tbody id="tabla-cuerpo">
-      <tr>
-        <td colspan="2" style="text-align: center; color: #64748b;">Cargando datos...</td>
-      </tr>
-    </tbody>
-  </table>
+  <div id="grid-vehiculos" class="cols-1">
+    <div class="mensaje-vacio">Cargando datos...</div>
+  </div>
 
-<script>
-    // 1. PEGA AQUÍ EL ID EXTRAÍDO DE LA URL DE EDICIÓN DE TU HOJA
+  <script>
+    // Inserte el ID de la hoja de Google Sheets
     const SHEET_ID = "1NAg-WiqwDBxwEo3wM0Uy3PquaBQGh-hNwWCBmBARvaw";
-    const GID = "0"; // 0 corresponde a la primera pestaña
+    const GID = "0";
 
     function getBadgeClass(estado) {
       const e = (estado || "").toLowerCase().trim();
@@ -124,69 +141,62 @@
       return "st-default";
     }
 
-    // Callback global invocado por la API de Google
     window.renderDatosGoogle = function(json) {
-      const tbody = document.getElementById("tabla-cuerpo");
+      const container = document.getElementById("grid-vehiculos");
       try {
         if (!json || !json.table || !json.table.rows) {
-          tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#64748b; padding-top:40px;">No se encontraron datos</td></tr>`;
+          container.className = "cols-1";
+          container.innerHTML = `<div class="mensaje-vacio">No se encontraron datos</div>`;
           return;
         }
 
         const rows = json.table.rows;
 
-        if (rows.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#64748b; padding-top:40px;">No hay vehículos en lista</td></tr>`;
-          return;
-        }
-
-// Filtrar encabezados residuales y celdas vacías
-        const autosValidos = rows.filter(r => {
+        // Filtrado de filas vacías y encabezados residuales
+        const autos = rows.filter(r => {
           if (!r.c || !r.c[0] || r.c[0].v === null) return false;
-          const texto = String(r.c[0].v).trim().toLowerCase();
-          // Ignora la fila si es el encabezado
-          return texto !== "modelo" && texto !== "";
+          const txt = String(r.c[0].v).trim().toLowerCase();
+          return txt !== "modelo" && txt !== "";
         });
 
-        if (autosValidos.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#64748b; padding-top:40px;">No hay vehículos en lista</td></tr>`;
+        if (autos.length === 0) {
+          container.className = "cols-1";
+          container.innerHTML = `<div class="mensaje-vacio">No hay vehículos en taller</div>`;
           return;
         }
 
-        tbody.innerHTML = autosValidos.map(r => {
+        // Lógica de conmutación: 1 a 5 autos = 1 columna; 6 o más = 2 columnas
+        if (autos.length <= 5) {
+          container.className = "cols-1";
+        } else {
+          container.className = "cols-2";
+        }
+
+        container.innerHTML = autos.map(r => {
           const modelo = (r.c[0] && r.c[0].v !== null) ? (r.c[0].f || r.c[0].v) : "—";
           const estado = (r.c[1] && r.c[1].v !== null) ? (r.c[1].f || r.c[1].v) : "Sin estado";
           const badgeClass = getBadgeClass(estado);
 
           return `
-            <tr>
-              <td class="col-modelo">${modelo}</td>
-              <td class="col-estado">
-                <span class="badge ${badgeClass}">${estado}</span>
-              </td>
-            </tr>
+            <div class="card-auto">
+              <span class="modelo-texto" title="${modelo}">${modelo}</span>
+              <span class="badge ${badgeClass}">${estado}</span>
+            </div>
           `;
         }).join("");
+
       } catch (err) {
-        console.error("Error al procesar los datos de Google:", err);
+        console.error("Error al renderizar:", err);
       }
     };
 
     function pedirDatos() {
-      // Remover llamadas anteriores para no saturar memoria
-      const scriptViejo = document.getElementById("gviz-script");
-      if (scriptViejo) scriptViejo.remove();
+      const viejo = document.getElementById("gviz-script");
+      if (viejo) viejo.remove();
 
       const script = document.createElement("script");
       script.id = "gviz-script";
-      // Endpoint oficial de Google Visualization que soporta inyección por script y salta CORS
       script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:renderDatosGoogle&gid=${GID}&_nocache=${Date.now()}`;
-      
-      script.onerror = function() {
-        const tbody = document.getElementById("tabla-cuerpo");
-        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#ef4444; padding-top:30px;">Error al conectar con la hoja. Verifica el ID y el acceso público.</td></tr>`;
-      };
-
       document.body.appendChild(script);
     }
 
@@ -195,12 +205,10 @@
       document.getElementById("reloj").textContent = ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    // Ejecución inicial y temporizadores
     pedirDatos();
     actualizarReloj();
-    setInterval(pedirDatos, 10000); // Actualiza cada 10 segundos
+    setInterval(pedirDatos, 10000);
     setInterval(actualizarReloj, 1000);
-</script>
-
+  </script>
 </body>
 </html>
