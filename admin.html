@@ -10,21 +10,24 @@
     
     h1 { font-size: 1.4rem; margin-bottom: 15px; color: #0f172a; text-align: center; }
 
-    /* Formulario agregar */
     .card-add { background: #ffffff; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .card-add h2 { font-size: 1rem; margin-bottom: 10px; color: #334155; }
-    input[type="text"], select { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px; }
+    input[type="text"], input[type="number"], select { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px; }
+    
+    .input-group { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+    
     button.btn-add { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; font-size: 1rem; font-weight: 700; border-radius: 8px; cursor: pointer; }
     button.btn-add:active { background: #0369a1; }
 
-    /* Lista de vehículos */
     .vehicle-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .vehicle-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .vehicle-title { font-size: 1.1rem; font-weight: 700; color: #0f172a; }
     
-    .actions-grid { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    /* Grid ajustado para 3 elementos: Select, Número, Botón */
+    .actions-grid { display: grid; grid-template-columns: 1fr 80px auto; gap: 8px; align-items: center; }
     .state-select { margin-bottom: 0; font-weight: 600; background: #f8fafc; }
-    .btn-delete { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 0 16px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    .progreso-input { margin-bottom: 0 !important; font-weight: 700; text-align: center; color: #0284c7; }
+    .btn-delete { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 12px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; height: 100%; }
 
     .loading { text-align: center; padding: 20px; color: #64748b; font-weight: 600; }
   </style>
@@ -33,24 +36,25 @@
 
   <h1>Control de Vehículos</h1>
 
-  <!-- Formulario para agregar -->
   <div class="card-add">
     <h2>+ Ingresar Nuevo Vehículo</h2>
     <input type="text" id="nuevo-modelo" placeholder="Ej: Toyota Hilux 2020">
-    <select id="nuevo-estado">
-      <option value="Recibido">Recibido</option>
-      <option value="Diagnosticando">Diagnosticando</option>
-      <option value="Esperando Repuestos">Esperando Repuestos</option>
-      <option value="En proceso">En proceso</option>
-      <option value="Listo para revisión">Listo para revisión</option>
-    </select>
+    <div class="input-group">
+      <select id="nuevo-estado">
+        <option value="Recibido">Recibido</option>
+        <option value="Diagnosticando">Diagnosticando</option>
+        <option value="Esperando Repuestos">Esperando Repuestos</option>
+        <option value="En proceso">En proceso</option>
+        <option value="Listo para revisión">Listo para revisión</option>
+      </select>
+      <input type="number" id="nuevo-progreso" placeholder="%" min="0" max="100" value="0">
+    </div>
     <button class="btn-add" onclick="agregarVehiculo()">Guardar Vehículo</button>
   </div>
 
   <div id="lista-vehiculos" class="loading">Cargando lista...</div>
 
   <script>
-    // PEGA AQUÍ LA URL QUE TERMINA EN /exec
     const API_URL = "https://script.google.com/macros/s/AKfycbwwPJ1wdAuLWtr4FSRUJ8NDH9mihZGm_cY7Wf2BteitKYuyZLqHZMWB-8Z5wD_4wZP_pg/exec";
 
     const ESTADOS = [
@@ -84,12 +88,13 @@
             <span class="vehicle-title">${item.modelo}</span>
           </div>
           <div class="actions-grid">
-            <select class="state-select" onchange="cambiarEstado(${item.rowIndex}, this.value)">
+            <select class="state-select" id="estado-${item.rowIndex}" onchange="actualizarAuto(${item.rowIndex})">
               ${ESTADOS.map(st => `
                 <option value="${st}" ${st === item.estado ? "selected" : ""}>${st}</option>
               `).join("")}
             </select>
-            <button class="btn-delete" onclick="eliminarVehiculo(${item.rowIndex})">✕ Quitar</button>
+            <input type="number" class="progreso-input" id="prog-${item.rowIndex}" value="${item.progreso}" min="0" max="100" onchange="actualizarAuto(${item.rowIndex})">
+            <button class="btn-delete" onclick="eliminarVehiculo(${item.rowIndex})">✕</button>
           </div>
         </div>
       `).join("");
@@ -98,8 +103,11 @@
     async function agregarVehiculo() {
       const modeloInput = document.getElementById("nuevo-modelo");
       const estadoInput = document.getElementById("nuevo-estado");
+      const progresoInput = document.getElementById("nuevo-progreso");
+      
       const modelo = modeloInput.value.trim();
       const estado = estadoInput.value;
+      const progreso = progresoInput.value || 0;
 
       if (!modelo) return alert("Escribe el modelo");
 
@@ -107,9 +115,10 @@
       try {
         await fetch(API_URL, {
           method: "POST",
-          body: JSON.stringify({ action: "ADD", modelo, estado })
+          body: JSON.stringify({ action: "ADD", modelo, estado, progreso })
         });
         modeloInput.value = "";
+        progresoInput.value = "0";
         cargarVehiculos();
       } catch (e) {
         alert("Error al agregar");
@@ -118,11 +127,17 @@
       }
     }
 
-    async function cambiarEstado(rowIndex, nuevoEstado) {
+    async function actualizarAuto(rowIndex) {
+      const nuevoEstado = document.getElementById(`estado-${rowIndex}`).value;
+      let nuevoProgreso = document.getElementById(`prog-${rowIndex}`).value;
+      
+      if(nuevoProgreso > 100) nuevoProgreso = 100;
+      if(nuevoProgreso < 0) nuevoProgreso = 0;
+
       try {
         await fetch(API_URL, {
           method: "POST",
-          body: JSON.stringify({ action: "UPDATE", rowIndex, estado: nuevoEstado })
+          body: JSON.stringify({ action: "UPDATE", rowIndex, estado: nuevoEstado, progreso: nuevoProgreso })
         });
       } catch (e) {
         alert("Error al actualizar estado");
@@ -131,7 +146,7 @@
     }
 
     async function eliminarVehiculo(rowIndex) {
-      if (!confirm("¿Dar salida a este vehículo? Se quitará de la pantalla.")) return;
+      if (!confirm("¿Dar salida a este vehículo?")) return;
       
       const card = document.getElementById(`card-${rowIndex}`);
       if (card) card.style.opacity = "0.3";
