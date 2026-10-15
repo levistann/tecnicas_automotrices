@@ -4,101 +4,39 @@
   <meta charset="UTF-8">
   <title>Estado de Vehículos - Taller</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: #0f172a; color: #f8fafc; padding: 24px 32px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 20px; }
+    h1 { font-size: 2.2rem; text-transform: uppercase; letter-spacing: 2px; color: #38bdf8; }
+    .clock { font-size: 2rem; font-weight: 700; color: #94a3b8; }
 
-    body {
-      background-color: #0f172a;
-      color: #f8fafc;
-      padding: 24px 32px;
-      height: 100vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
+    #grid-vehiculos { display: grid; width: 100%; align-content: start; transition: all 0.3s ease; }
+    .cols-1 { grid-template-columns: 1fr; max-width: 900px; margin: 0 auto; gap: 16px; }
+    .cols-2 { grid-template-columns: repeat(2, 1fr); gap: 14px 24px; max-width: 100%; }
 
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 2px solid #334155;
-      padding-bottom: 12px;
-      margin-bottom: 20px;
-    }
-
-    h1 {
-      font-size: 2.2rem;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      color: #38bdf8;
-    }
-
-    .clock {
-      font-size: 2rem;
-      font-weight: 700;
-      color: #94a3b8;
-    }
-
-    /* Contenedor base de la cuadrícula */
-    #grid-vehiculos {
-      display: grid;
-      width: 100%;
-      align-content: start;
-      transition: all 0.3s ease;
-    }
-
-    /* Modo 1 columna (1 a 5 autos): centrado y amplio */
-    .cols-1 {
-      grid-template-columns: 1fr;
-      max-width: 900px;
-      margin: 0 auto;
-      gap: 16px;
-    }
-
-    /* Modo 2 columnas (6 a 10 autos): aprovecha todo el ancho de la TV */
-    .cols-2 {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 14px 24px;
-      max-width: 100%;
-    }
-
-    /* Tarjetas de autos (dimensiones fijas sin reducción) */
+    /* Modificación de la tarjeta para alojar la barra de progreso */
     .card-auto {
       background-color: #1e293b;
       border: 1px solid #334155;
       border-radius: 10px;
-      padding: 14px 20px;
+      padding: 14px 20px 18px 20px; /* Un poco más de espacio abajo */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 12px;
+      width: 100%;
     }
 
-    .modelo-texto {
-      font-size: 1.6rem;
-      font-weight: 700;
-      color: #ffffff;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 60%;
-    }
-
-    /* Badges de estado */
-    .badge {
-      display: inline-block;
-      padding: 6px 16px;
-      border-radius: 6px;
-      font-size: 1.3rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      white-space: nowrap;
-    }
-
+    .modelo-texto { font-size: 1.6rem; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+    
+    .badge { display: inline-block; padding: 6px 16px; border-radius: 6px; font-size: 1.3rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+    
     .st-recibido { background-color: #3b82f6; color: #ffffff; }
     .st-diagnosticando { background-color: #eab308; color: #000000; }
     .st-repuestos { background-color: #f97316; color: #ffffff; }
@@ -106,13 +44,24 @@
     .st-listo { background-color: #22c55e; color: #ffffff; }
     .st-default { background-color: #475569; color: #ffffff; }
 
-    .mensaje-vacio {
-      text-align: center;
-      color: #64748b;
-      font-size: 1.6rem;
-      padding-top: 60px;
+    /* Estilos de la barra de progreso */
+    .progress-container {
       width: 100%;
+      height: 6px;
+      background-color: #0f172a;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
     }
+    
+    .progress-bar {
+      height: 100%;
+      background-color: #38bdf8;
+      border-radius: 3px;
+      transition: width 0.8s ease;
+    }
+
+    .mensaje-vacio { text-align: center; color: #64748b; font-size: 1.6rem; padding-top: 60px; width: 100%; }
   </style>
 </head>
 <body>
@@ -127,7 +76,6 @@
   </div>
 
   <script>
-    // Inserte el ID de la hoja de Google Sheets
     const SHEET_ID = "1NAg-WiqwDBxwEo3wM0Uy3PquaBQGh-hNwWCBmBARvaw";
     const GID = "0";
 
@@ -151,8 +99,6 @@
         }
 
         const rows = json.table.rows;
-
-        // Filtrado de filas vacías y encabezados residuales
         const autos = rows.filter(r => {
           if (!r.c || !r.c[0] || r.c[0].v === null) return false;
           const txt = String(r.c[0].v).trim().toLowerCase();
@@ -165,22 +111,28 @@
           return;
         }
 
-        // Lógica de conmutación: 1 a 5 autos = 1 columna; 6 o más = 2 columnas
-        if (autos.length <= 5) {
-          container.className = "cols-1";
-        } else {
-          container.className = "cols-2";
-        }
+        if (autos.length <= 5) container.className = "cols-1";
+        else container.className = "cols-2";
 
         container.innerHTML = autos.map(r => {
           const modelo = (r.c[0] && r.c[0].v !== null) ? (r.c[0].f || r.c[0].v) : "—";
           const estado = (r.c[1] && r.c[1].v !== null) ? (r.c[1].f || r.c[1].v) : "Sin estado";
+          
+          // Extracción del porcentaje desde la columna 3 (índice 2)
+          let progreso = (r.c[2] && r.c[2].v !== null) ? Number(r.c[2].v) : 0;
+          if (progreso > 100) progreso = 100;
+          
           const badgeClass = getBadgeClass(estado);
 
           return `
             <div class="card-auto">
-              <span class="modelo-texto" title="${modelo}">${modelo}</span>
-              <span class="badge ${badgeClass}">${estado}</span>
+              <div class="card-header">
+                <span class="modelo-texto" title="${modelo}">${modelo}</span>
+                <span class="badge ${badgeClass}">${estado}</span>
+              </div>
+              <div class="progress-container">
+                <div class="progress-bar" style="width: ${progreso}%"></div>
+              </div>
             </div>
           `;
         }).join("");
