@@ -5,37 +5,64 @@
   <title>Estado de Vehículos - Taller</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    body { background-color: #0f172a; color: #f8fafc; padding: 16px 24px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 8px; margin-bottom: 12px; }
+    
+    body { 
+      background-color: #0f172a; 
+      color: #f8fafc; 
+      padding: 16px 24px; 
+      height: 100vh; 
+      overflow: hidden; 
+      display: flex; 
+      flex-direction: column; 
+    }
+    
+    header { 
+      display: flex; justify-content: space-between; align-items: center; 
+      border-bottom: 2px solid #334155; padding-bottom: 8px; margin-bottom: 12px; flex-shrink: 0;
+    }
     h1 { font-size: 1.8rem; text-transform: uppercase; letter-spacing: 2px; color: #38bdf8; }
     .clock { font-size: 1.6rem; font-weight: 700; color: #94a3b8; }
 
-    #grid-vehiculos { display: grid; width: 100%; align-content: start; transition: all 0.3s ease; }
-    .cols-1 { grid-template-columns: 1fr; max-width: 900px; margin: 0 auto; gap: 12px; }
-    .cols-2 { grid-template-columns: repeat(2, 1fr); gap: 10px 20px; max-width: 100%; }
+    /* Contenedor escrolleable ocultando la barra nativa */
+    #grid-vehiculos { 
+      display: grid; width: 100%; align-content: start; 
+      flex-grow: 1; overflow-y: scroll; scroll-behavior: smooth;
+      scrollbar-width: none; /* Firefox */
+    }
+    #grid-vehiculos::-webkit-scrollbar { display: none; } /* TV Bro / Chrome */
 
+    /* Tarjeta Base */
     .card-auto {
-      background-color: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 10px 16px 12px 16px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      background-color: #1e293b; border: 1px solid #334155; border-radius: 8px;
+      display: flex; flex-direction: column; justify-content: center;
+      transition: all 0.2s ease;
     }
-
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      width: 100%;
-    }
-
-    .modelo-texto { font-size: 1.35rem; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+    .modelo-texto { font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+    .badge { display: inline-block; border-radius: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
     
-    .badge { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 1.1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
-    
+    /* NIVEL 1: 1 a 5 autos (Gigante) */
+    .cols-1 { grid-template-columns: 1fr; max-width: 800px; margin: 0 auto; gap: 16px; padding-bottom: 20px;}
+    .cols-1 .card-auto { padding: 16px 20px 18px 20px; }
+    .cols-1 .modelo-texto { font-size: 1.7rem; }
+    .cols-1 .badge { font-size: 1.3rem; padding: 6px 16px; }
+    .cols-1 .card-header { margin-bottom: 12px; }
+
+    /* NIVEL 2: 6 a 8 autos (Mediano) */
+    .cols-2-lg { grid-template-columns: repeat(2, 1fr); gap: 14px 20px; padding-bottom: 20px;}
+    .cols-2-lg .card-auto { padding: 12px 18px 14px 18px; }
+    .cols-2-lg .modelo-texto { font-size: 1.4rem; }
+    .cols-2-lg .badge { font-size: 1.1rem; padding: 4px 12px; }
+    .cols-2-lg .card-header { margin-bottom: 8px; }
+
+    /* NIVEL 3: 9+ autos (Compacto) */
+    .cols-2-sm { grid-template-columns: repeat(2, 1fr); gap: 8px 14px; padding-bottom: 20px;}
+    .cols-2-sm .card-auto { padding: 10px 14px 12px 14px; }
+    .cols-2-sm .modelo-texto { font-size: 1.2rem; }
+    .cols-2-sm .badge { font-size: 0.95rem; padding: 4px 10px; }
+    .cols-2-sm .card-header { margin-bottom: 6px; }
+
+    /* Colores de estado */
     .st-recibido { background-color: #3b82f6; color: #ffffff; }
     .st-diagnosticando { background-color: #eab308; color: #000000; }
     .st-repuestos { background-color: #f97316; color: #ffffff; }
@@ -43,23 +70,22 @@
     .st-listo { background-color: #22c55e; color: #ffffff; }
     .st-default { background-color: #475569; color: #ffffff; }
 
-    .progress-container {
-      width: 100%;
-      height: 6px;
-      background-color: #0f172a;
-      border-radius: 3px;
-      overflow: hidden;
-      margin-top: 2px;
-    }
-    
-    .progress-bar {
-      height: 100%;
-      background-color: #38bdf8;
-      border-radius: 3px;
-      transition: width 0.8s ease;
-    }
+    /* Barra de progreso */
+    .progress-container { width: 100%; height: 6px; background-color: #0f172a; border-radius: 3px; overflow: hidden; margin-top: 2px; }
+    .progress-bar { height: 100%; background-color: #38bdf8; border-radius: 3px; transition: width 0.8s ease; }
+    .mensaje-vacio { grid-column: 1 / -1; text-align: center; color: #64748b; font-size: 1.4rem; padding-top: 40px; }
 
-    .mensaje-vacio { text-align: center; color: #64748b; font-size: 1.4rem; padding-top: 40px; width: 100%; }
+    /* Controles de Scroll (Visibles solo si hay desbordamiento) */
+    .scroll-controls {
+      display: none; /* Se activa vía JS */
+      justify-content: center; gap: 24px; padding-top: 12px;
+      border-top: 2px solid #334155; flex-shrink: 0;
+    }
+    .btn-scroll {
+      background-color: #0ea5e9; color: white; border: none; padding: 10px 28px;
+      border-radius: 6px; font-size: 1.3rem; font-weight: bold; cursor: pointer;
+    }
+    .btn-scroll:active { background-color: #0284c7; }
   </style>
 </head>
 <body>
@@ -71,6 +97,11 @@
 
   <div id="grid-vehiculos" class="cols-1">
     <div class="mensaje-vacio">Cargando datos...</div>
+  </div>
+
+  <div id="scroll-panel" class="scroll-controls">
+    <button class="btn-scroll" onclick="desplazarGrid(-1)">▲ Subir</button>
+    <button class="btn-scroll" onclick="desplazarGrid(1)">▼ Bajar</button>
   </div>
 
   <script>
@@ -87,17 +118,23 @@
       return "st-default";
     }
 
+    function desplazarGrid(direccion) {
+      const grid = document.getElementById("grid-vehiculos");
+      const cantidad = grid.clientHeight * 0.7; // Desplaza el 70% de la altura visible
+      grid.scrollTop += (direccion * cantidad);
+    }
+
     window.renderDatosGoogle = function(json) {
       const container = document.getElementById("grid-vehiculos");
       try {
         if (!json || !json.table || !json.table.rows) {
           container.className = "cols-1";
           container.innerHTML = `<div class="mensaje-vacio">No se encontraron datos</div>`;
+          evaluarScroll();
           return;
         }
 
-        const rows = json.table.rows;
-        const autos = rows.filter(r => {
+        const autos = json.table.rows.filter(r => {
           if (!r.c || !r.c[0] || r.c[0].v === null) return false;
           const txt = String(r.c[0].v).trim().toLowerCase();
           return txt !== "modelo" && txt !== "";
@@ -106,26 +143,26 @@
         if (autos.length === 0) {
           container.className = "cols-1";
           container.innerHTML = `<div class="mensaje-vacio">No hay vehículos en taller</div>`;
+          evaluarScroll();
           return;
         }
 
+        // Aplicación estricta de umbrales
         if (autos.length <= 5) container.className = "cols-1";
-        else container.className = "cols-2";
+        else if (autos.length <= 8) container.className = "cols-2-lg";
+        else container.className = "cols-2-sm";
 
         container.innerHTML = autos.map(r => {
           const modelo = (r.c[0] && r.c[0].v !== null) ? (r.c[0].f || r.c[0].v) : "—";
           const estado = (r.c[1] && r.c[1].v !== null) ? (r.c[1].f || r.c[1].v) : "Sin estado";
-          
           let progreso = (r.c[2] && r.c[2].v !== null) ? Number(r.c[2].v) : 0;
           if (progreso > 100) progreso = 100;
           
-          const badgeClass = getBadgeClass(estado);
-
           return `
             <div class="card-auto">
               <div class="card-header">
                 <span class="modelo-texto" title="${modelo}">${modelo}</span>
-                <span class="badge ${badgeClass}">${estado}</span>
+                <span class="badge ${getBadgeClass(estado)}">${estado}</span>
               </div>
               <div class="progress-container">
                 <div class="progress-bar" style="width: ${progreso}%"></div>
@@ -134,15 +171,30 @@
           `;
         }).join("");
 
+        evaluarScroll();
+
       } catch (err) {
         console.error("Error al renderizar:", err);
       }
     };
 
+    function evaluarScroll() {
+      // Retraso ligero para permitir que el DOM renderice las alturas reales
+      setTimeout(() => {
+        const grid = document.getElementById("grid-vehiculos");
+        const panel = document.getElementById("scroll-panel");
+        // Tolerancia de 5px para evitar activaciones en el límite exacto
+        if (grid.scrollHeight > grid.clientHeight + 5) {
+          panel.style.display = "flex";
+        } else {
+          panel.style.display = "none";
+        }
+      }, 150);
+    }
+
     function pedirDatos() {
       const viejo = document.getElementById("gviz-script");
       if (viejo) viejo.remove();
-
       const script = document.createElement("script");
       script.id = "gviz-script";
       script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:renderDatosGoogle&gid=${GID}&_nocache=${Date.now()}`;
