@@ -7,13 +7,11 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #f1f5f9; padding: 15px; color: #1e293b; padding-bottom: 40px; }
-    
     h1 { font-size: 1.4rem; margin-bottom: 15px; color: #0f172a; text-align: center; }
 
     .card-add { background: #ffffff; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .card-add h2 { font-size: 1rem; margin-bottom: 10px; color: #334155; }
     input[type="text"], input[type="number"], select { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px; }
-    
     .input-group { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
     
     button.btn-add { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; font-size: 1rem; font-weight: 700; border-radius: 8px; cursor: pointer; }
@@ -23,11 +21,22 @@
     .vehicle-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .vehicle-title { font-size: 1.1rem; font-weight: 700; color: #0f172a; }
     
-    /* Grid ajustado para 3 elementos: Select, Número, Botón */
     .actions-grid { display: grid; grid-template-columns: 1fr 80px auto; gap: 8px; align-items: center; }
     .state-select { margin-bottom: 0; font-weight: 600; background: #f8fafc; }
     .progreso-input { margin-bottom: 0 !important; font-weight: 700; text-align: center; color: #0284c7; }
     .btn-delete { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 12px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; height: 100%; }
+
+    /* Estilos de Subprocesos */
+    .btn-toggle { width: 100%; background: #e2e8f0; color: #334155; border: none; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+    .tareas-container { margin-top: 15px; border-top: 1px dashed #cbd5e1; padding-top: 15px; }
+    
+    .tarea-item { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .tarea-item input[type="checkbox"] { width: 22px; height: 22px; flex-shrink: 0; }
+    .tarea-item input[type="text"] { margin-bottom: 0; padding: 10px; border-radius: 6px; flex-grow: 1; }
+    .tarea-item.hecho input[type="text"] { text-decoration: line-through; color: #94a3b8; background: #f8fafc; }
+    
+    .btn-del-tarea { background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; width: 42px; height: 42px; font-weight: bold; cursor: pointer; flex-shrink: 0; }
+    .btn-add-tarea { width: 100%; background: transparent; color: #0284c7; border: 2px dashed #0284c7; padding: 12px; border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 5px; }
 
     .loading { text-align: center; padding: 20px; color: #64748b; font-weight: 600; }
   </style>
@@ -55,46 +64,72 @@
   <div id="lista-vehiculos" class="loading">Cargando lista...</div>
 
   <script>
+    // INSERTA TU URL DE APPS SCRIPT AQUÍ
     const API_URL = "https://script.google.com/macros/s/AKfycbwwPJ1wdAuLWtr4FSRUJ8NDH9mihZGm_cY7Wf2BteitKYuyZLqHZMWB-8Z5wD_4wZP_pg/exec";
 
-    const ESTADOS = [
-      "Recibido",
-      "Diagnosticando",
-      "Esperando Repuestos",
-      "En proceso",
-      "Listo para revisión"
-    ];
+    const ESTADOS = ["Recibido", "Diagnosticando", "Esperando Repuestos", "En proceso", "Listo para revisión"];
+    let vehiculosData = [];
 
     async function cargarVehiculos() {
       try {
         const res = await fetch(API_URL);
         const data = await res.json();
-        renderLista(data);
+        
+        vehiculosData = data.map(nuevoItem => {
+          const viejoItem = vehiculosData.find(v => v.rowIndex === nuevoItem.rowIndex);
+          
+          let tareasArray = [];
+          if (typeof nuevoItem.tareas === 'string') {
+            try { tareasArray = JSON.parse(nuevoItem.tareas); } catch(e) {}
+          }
+          
+          return {
+            ...nuevoItem,
+            tareas: tareasArray,
+            expanded: viejoItem ? viejoItem.expanded : false
+          };
+        });
+        
+        renderLista();
       } catch (err) {
         document.getElementById("lista-vehiculos").innerHTML = `<p style="color:red; text-align:center;">Error de conexión</p>`;
       }
     }
 
-    function renderLista(items) {
+    function renderLista() {
       const container = document.getElementById("lista-vehiculos");
-      if (items.length === 0) {
+      if (vehiculosData.length === 0) {
         container.innerHTML = `<p style="text-align:center; color:#64748b;">No hay autos en el taller</p>`;
         return;
       }
 
-      container.innerHTML = items.map(item => `
+      container.innerHTML = vehiculosData.map(item => `
         <div class="vehicle-card" id="card-${item.rowIndex}">
           <div class="vehicle-header">
             <span class="vehicle-title">${item.modelo}</span>
           </div>
+          
           <div class="actions-grid">
-            <select class="state-select" id="estado-${item.rowIndex}" onchange="actualizarAuto(${item.rowIndex})">
-              ${ESTADOS.map(st => `
-                <option value="${st}" ${st === item.estado ? "selected" : ""}>${st}</option>
-              `).join("")}
+            <select class="state-select" onchange="updateMainField(${item.rowIndex}, 'estado', this.value)">
+              ${ESTADOS.map(st => `<option value="${st}" ${st === item.estado ? "selected" : ""}>${st}</option>`).join("")}
             </select>
-            <input type="number" class="progreso-input" id="prog-${item.rowIndex}" value="${item.progreso}" min="0" max="100" onchange="actualizarAuto(${item.rowIndex})">
+            <input type="number" class="progreso-input" value="${item.progreso}" min="0" max="100" onchange="updateMainField(${item.rowIndex}, 'progreso', this.value)">
             <button class="btn-delete" onclick="eliminarVehiculo(${item.rowIndex})">✕</button>
+          </div>
+
+          <button class="btn-toggle" onclick="toggleTareas(${item.rowIndex})">
+            ${item.expanded ? '▲ Ocultar Subprocesos' : `▼ Ver Subprocesos (${item.tareas.length})`}
+          </button>
+
+          <div class="tareas-container" style="display: ${item.expanded ? 'block' : 'none'}">
+            ${item.tareas.map((t, idx) => `
+              <div class="tarea-item ${t.hecho ? 'hecho' : ''}">
+                <input type="checkbox" ${t.hecho ? 'checked' : ''} onchange="updateTarea(${item.rowIndex}, ${idx}, 'hecho', this.checked)">
+                <input type="text" value="${t.texto.replace(/"/g, '&quot;')}" onchange="updateTarea(${item.rowIndex}, ${idx}, 'texto', this.value)" placeholder="Descripción de la tarea">
+                <button class="btn-del-tarea" onclick="eliminarTarea(${item.rowIndex}, ${idx})">✕</button>
+              </div>
+            `).join("")}
+            <button class="btn-add-tarea" onclick="agregarTarea(${item.rowIndex})">+ Añadir ítem</button>
           </div>
         </div>
       `).join("");
@@ -120,50 +155,81 @@
         modeloInput.value = "";
         progresoInput.value = "0";
         cargarVehiculos();
-      } catch (e) {
-        alert("Error al agregar");
-      } finally {
-        modeloInput.disabled = false;
-      }
+      } catch (e) { alert("Error al agregar"); } 
+      finally { modeloInput.disabled = false; }
     }
 
-    async function actualizarAuto(rowIndex) {
-      const nuevoEstado = document.getElementById(`estado-${rowIndex}`).value;
-      let nuevoProgreso = document.getElementById(`prog-${rowIndex}`).value;
-      
-      if(nuevoProgreso > 100) nuevoProgreso = 100;
-      if(nuevoProgreso < 0) nuevoProgreso = 0;
+    // Funciones de control de estado local e interfaz
+    function toggleTareas(rowIndex) {
+      const v = vehiculosData.find(x => x.rowIndex === rowIndex);
+      v.expanded = !v.expanded;
+      renderLista();
+    }
 
+    function agregarTarea(rowIndex) {
+      const v = vehiculosData.find(x => x.rowIndex === rowIndex);
+      v.tareas.push({ texto: "", hecho: false });
+      renderLista();
+    }
+
+    function eliminarTarea(rowIndex, idx) {
+      const v = vehiculosData.find(x => x.rowIndex === rowIndex);
+      v.tareas.splice(idx, 1);
+      renderLista();
+      syncAlServidor(rowIndex);
+    }
+
+    function updateTarea(rowIndex, idx, field, value) {
+      const v = vehiculosData.find(x => x.rowIndex === rowIndex);
+      v.tareas[idx][field] = value;
+      renderLista(); 
+      syncAlServidor(rowIndex);
+    }
+
+    function updateMainField(rowIndex, field, value) {
+      const v = vehiculosData.find(x => x.rowIndex === rowIndex);
+      if (field === 'progreso') {
+        value = parseInt(value) || 0;
+        if (value > 100) value = 100;
+        if (value < 0) value = 0;
+      }
+      v[field] = value;
+      renderLista();
+      syncAlServidor(rowIndex);
+    }
+
+    // Sincronización en bloque (para estado, progreso y tareas a la vez)
+    async function syncAlServidor(rowIndex) {
+      const v = vehiculosData.find(x => x.rowIndex === rowIndex);
       try {
         await fetch(API_URL, {
           method: "POST",
-          body: JSON.stringify({ action: "UPDATE", rowIndex, estado: nuevoEstado, progreso: nuevoProgreso })
+          body: JSON.stringify({ 
+            action: "UPDATE", 
+            rowIndex: rowIndex, 
+            estado: v.estado, 
+            progreso: v.progreso,
+            tareas: JSON.stringify(v.tareas)
+          })
         });
       } catch (e) {
-        alert("Error al actualizar estado");
-        cargarVehiculos();
+        console.error("Error de sincronización en segundo plano");
       }
     }
 
     async function eliminarVehiculo(rowIndex) {
       if (!confirm("¿Dar salida a este vehículo?")) return;
-      
       const card = document.getElementById(`card-${rowIndex}`);
       if (card) card.style.opacity = "0.3";
-
       try {
-        await fetch(API_URL, {
-          method: "POST",
-          body: JSON.stringify({ action: "DELETE", rowIndex })
-        });
+        await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "DELETE", rowIndex }) });
         cargarVehiculos();
-      } catch (e) {
-        alert("Error al eliminar");
-        cargarVehiculos();
-      }
+      } catch (e) { alert("Error al eliminar"); cargarVehiculos(); }
     }
 
     cargarVehiculos();
+    // Actualización silenciosa cada 20s para sincronizar cambios entre teléfonos
+    setInterval(cargarVehiculos, 20000);
   </script>
 </body>
 </html>
